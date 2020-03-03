@@ -1,0 +1,30 @@
+{
+  "name": "nemeth_project1",
+  "version": "1.0.0",
+  "description": "",
+  "main": "server.js",
+  "scripts": {
+    "start": "node ./src/server.js",
+    "pretest": "eslint ./src --fix",
+    "test": "echo \"Tests Complete\""
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Jacobnine87/nemeth_project1.git"
+  },
+  "engines": {
+    "node": "12.14.1",
+    "npm": "6.13.7"
+  },
+  "author": "Jacob Nemeth",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/Jacobnine87/nemeth_project1/issues"
+  },
+  "homepage": "https://github.com/Jacobnine87/nemeth_project1#readme",
+  "devDependencies": {
+    "eslint": "^6.8.0",
+    "eslint-config-airbnb": "^18.0.1",
+    "eslint-plugin-import": "^2.20.1"
+  }
+}

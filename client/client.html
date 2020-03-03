@@ -1,0 +1,350 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+	<title>Project 1!</title>
+	<link rel="stylesheet" type="text/css" href="./style.css">
+	<script src="https://cdnjs.cloudflare.com/ajax/libs/babel-core/5.8.34/browser.min.js"></script>
+	<script type="text/babel">
+		const parseJSON = (xhr, content) => {
+			//	Parse response
+			const obj = JSON.parse(xhr.response);
+			/*
+			obj = function(xhr) {
+				return xhr.response.text().then(function(message) {
+					return message ? JSON.parse(message);
+				})
+			}*/
+			console.dir(obj);
+			
+			//	Print message if one exists
+			if(obj.message) {
+				const p = document.createElement('p');
+				p.textContent = `Message: ${obj.message}`;
+				content.appendChild(p);
+			}
+			
+			//	Print cards in response
+			if(obj.cards) {
+				const cardList = document.createElement('ul');
+				for(let c in obj.cards) {
+					var liNode = document.createElement('li');
+					liNode.appendChild(document.createTextNode(`Name: ${c.name}\n`));
+					liNode.appendChild(document.createTextNode(`Health: ${c.health}\n`));
+					liNode.appendChild(document.createTextNode(`Attack: ${c.attack}\n`));
+					var imgNode = document.createElement('img');
+					imgNode.src = c.drawing;
+					liNode.appendChild(imgNode);
+					cardList.appendChild(liNode);
+				}
+				content.appendChild(cardList);
+			}
+		};
+		
+		const handleResponse = (xhr) => {
+			const content = document.getElementById('content');
+			
+			switch(xhr.status) {
+				case 200:	//	SUCCess
+					content.innerHTML = `<b>Success!</b>`;
+					break;
+				case 201:	//	Created
+					content.innerHTML = `<b>Created!</b>`;
+					break;
+				case 204:	//	Updated
+					content.innerHTML = `<b>Updated!</b>`;
+					break;
+				case 400:	//	Bad Request
+					content.innerHTML = `<b>Bad Request! :(</b>`;
+					break;
+				default:	//	Idk how you got here but I like it
+					content.innerHTML = `The dev did something wrong`;
+					break;
+			}
+			parseJSON(xhr, content);
+		};
+		
+		const sendPost = (e, cardForm) => {
+			//	Bad browser
+			e.preventDefault();
+			
+			//	Grab form actions
+			const nameAction = cardForm.getAttribute('action');
+			const nameMethod = cardForm.getAttribute('method');
+			
+			//	Grab fields
+			const nameField = cardForm.querySelector('#nameField');
+			const healthField = cardForm.querySelector('#healthField');
+			const attackField = cardForm.querySelector('#attackField');
+			const drawingField = cardForm.querySelector('#mainCanvas');
+			const drawingData = drawingField.toDataURL();
+			
+			//	Async Ajax
+			const xhr = new XMLHttpRequest();
+			xhr.open(nameMethod, nameAction);
+			
+			//	Specify it's form data
+			xhr.setRequestHeader('Content-type', 'application/x-www-form-urlencoded');
+			//	Don't you dare leave me on read
+			xhr.setRequestHeader('Accept', 'application/json');
+			
+			//	Let it handle its own business
+			xhr.onload = () => handleResponse(xhr);
+			
+			const formData = 
+			`name=${nameField.value}
+			&health=${healthField.value}
+			&attack=${attackField.value}
+			&drawing=${drawingData}`;
+			//	Convey our feelings
+			xhr.send(formData);
+			
+			//	No page change >:(
+			return false;
+		};
+		
+		const init = () => {
+			const cardForm = document.getElementById('cardForm');
+			const addCard = (e) => sendPost(e, cardForm);
+			cardForm.addEventListener('submit', addCard);
+		};
+		
+		window.onload = init;		
+	</script>
+	<script>
+	"use strict";
+	window.addEventListener("load", canvasInit);
+	//	GLOBALS
+	var canvas,ctx,dragging=false,lineWidth,strokeStyle;
+	var currentTool,fillStyle;
+	var origin;
+	var topCanvas,topCtx;
+
+	// CONSTANTS
+	var DEFAULT_LINE_WIDTH = 3;
+	var DEFAULT_STROKE_STYLE = "red";
+	var DEFAULT_FILL_STYLE = "blue";
+	var TOOL_PENCIL = "toolPencil";
+	var TOOL_RECTANGLE = "toolRectangle";
+	var TOOL_LINE = "toolLine";
+
+	function canvasInit() {
+		canvas = document.getElementById('mainCanvas');
+		ctx = canvas.getContext('2d');
+		lineWidth = DEFAULT_LINE_WIDTH;
+		strokeStyle = DEFAULT_STROKE_STYLE;
+		fillStyle = DEFAULT_FILL_STYLE;
+		currentTool = TOOL_PENCIL;
+		origin = {};
+		topCanvas = document.getElementById('topCanvas');
+		topCtx = topCanvas.getContext('2d');
+
+		//	Initial graphics properties
+		canvas.onmousedown = doMousedown;
+		canvas.onmousemove = doMousemove;
+		canvas.onmouseup = doMouseup;
+		canvas.onmouseout = doMouseout;
+
+		topCanvas.onmousedown = doMousedown;
+		topCanvas.onmousemove = doMousemove;
+		topCanvas.onmouseup = doMouseup;
+		topCanvas.onmouseout = doMouseout;
+
+		document.getElementById('lineWidthChooser').onchange = doLineWidthChange;
+		document.getElementById('strokeStyleChooser').onchange = doStrokeStyleChange;
+		document.getElementById('clearButton').onclick = doClear;
+		document.getElementById('toolChooser').onchange = function(e) {
+			currentTool = e.target.value;
+		};
+		document.getElementById('fillStyleChooser').onchange = function(e) {
+			fillStyle = e.target.value;
+		};
+	}
+
+  	//	Canvas Callback Functions
+	function doMousedown(e) {
+  		dragging = true;
+		let mouse = getMouse(e);
+
+		switch(currentTool) {
+			case TOOL_PENCIL:
+				ctx.beginPath();
+				ctx.moveTo(mouse.x,mouse.y);
+				break;
+			case TOOL_RECTANGLE:
+			case TOOL_LINE:
+				origin.x = mouse.x;
+				origin.y = mouse.y;
+				break;
+		}
+	}
+
+	function doMousemove(e) {
+  		//	Bail out if shenanigans
+ 		if(!dragging) return;
+ 		var mouse = getMouse(e);
+
+ 		switch(currentTool) {
+ 			case TOOL_PENCIL:
+ 				ctx.strokeStyle = strokeStyle;
+ 				ctx.lineWidth = lineWidth;
+
+ 				//	Draw line
+ 				ctx.lineTo(mouse.x,mouse.y);
+
+ 				ctx.stroke();
+ 				break;
+			case TOOL_RECTANGLE:
+				var x = Math.min(mouse.x,origin.x);
+				var y = Math.min(mouse.y,origin.y);
+				var w = Math.abs(mouse.x - origin.x);
+				var h = Math.abs(mouse.y - origin.y);
+
+				//	Fill and stroke
+				topCtx.strokeStyle = strokeStyle;
+				topCtx.fillStyle = fillStyle;
+				topCtx.lineWidth = lineWidth;
+
+				//	Erase old rectangle
+				clearTopCanvas();
+
+				//	Draw new rect
+				topCtx.fillRect(x,y,w,h);
+				topCtx.strokeRect(x,y,w,h);
+				break;
+			case TOOL_LINE:
+				topCtx.strokeStyle = strokeStyle;
+				topCtx.lineWidth = lineWidth;
+				clearTopCanvas();
+				topCtx.beginPath();
+				topCtx.moveTo(origin.x,origin.y);
+				topCtx.lineTo(mouse.x,mouse.y);
+				topCtx.stroke();
+				break;
+ 		}
+  	}
+
+	function doMouseup(e) {
+  		switch(currentTool) {
+			case TOOL_PENCIL:
+				ctx.closePath();
+				break;
+			case TOOL_RECTANGLE:
+			case TOOL_LINE:
+				if(dragging) {
+					ctx.drawImage(topCanvas,0,0);
+					clearTopCanvas();
+				}
+				break;
+		}
+		dragging = false;
+  	}
+
+	function doMouseout(e) {
+  		switch(currentTool) {
+			case TOOL_PENCIL:
+				ctx.closePath();
+				break;
+			case TOOL_RECTANGLE:
+			case TOOL_LINE:
+				//	Cancel the drawing
+				clearTopCanvas();
+				break;
+		}
+		dragging = false;
+  	}
+
+	function doClear() {
+  		ctx.clearRect(0,0,ctx.canvas.width,ctx.canvas.height);
+  		console.log("Clearing!");
+  	}
+
+	function doLineWidthChange(e) {
+  		lineWidth = e.target.value;
+  	}
+
+	function doStrokeStyleChange(e) {
+  		strokeStyle = e.target.value;
+  	}
+
+	function clearTopCanvas() {
+		topCtx.clearRect(0,0,topCtx.canvas.width,topCtx.canvas.height);
+  	}
+
+	function getMouse(e) {
+  		var mouse = {}
+		mouse.x = e.pageX - e.target.offsetLeft;
+		mouse.y = e.pageY - e.target.offsetTop;
+		return mouse;
+  	}
+</script>
+</head>
+<body>
+	<section id="top">
+		<h3>Card Game Card Ideas!</h3>
+		<form id="cardForm" action="/addCard" method="post">
+			<label for="name">Card Name: </label>
+			<input id="nameField" type="text" name="name" />
+			<label for="health">Card Health: </label>
+			<input id="healthField" type="number" name="health" min="0" max="100" step="1"/>
+			<label for="attack">Card Attack Value: </label>
+			<input id="attackField" type="number" name="attack" min="0" max="999" step="1"/>
+			<input type="submit" value="Add Card" />
+			<div id="controls">
+				<label>Tool:
+					<select id="toolChooser">
+						<option value="toolPencil">Pencil</option>
+						<option value="toolRectangle">Rectangle</option>
+						<option value="toolLine">Line</option>
+		    		</select>
+		    	</label>
+		    	
+		    	<label>Line Width: 
+					<select id="lineWidthChooser">
+						<option value="1">1</option>
+						<option value="2">2</option>
+		        		<option value="3" selected>3</option>
+		        		<option value="4">4</option>
+						<option value="5">5</option>
+		        		<option value="6">6</option>
+		        		<option value="7">7</option>
+						<option value="8">8</option>
+		        		<option value="9">9</option>
+		        		<option value="10">10</option>
+		    		</select>
+		    	</label>
+
+		    	<label>Stroke Style:
+		    		<select id="strokeStyleChooser">
+						<option value="blue">blue</option>
+						<option value="red" selected>red</option>
+						<option value="green">green</option>
+						<option value="orange">orange</option>
+						<option value="purple">purple</option>
+		    		</select>
+		    	</label>
+
+		    	<label>Fill Style
+		    		<select id="fillStyleChooser">
+						<option value="blue" selected>blue</option>
+						<option value="red">red</option>
+						<option value="green">green</option>
+						<option value="orange">orange</option>
+						<option value="purple">purple</option>
+		    		</select>
+		    	</label>
+		    	<span><input id="clearButton" type="button" value="Clear"/></span>
+		    </div>
+		    <canvas id="mainCanvas" width="400" height="500">
+				Get a real browser!
+			</canvas>
+
+			<canvas id="topCanvas" width="400" height="500">
+				Seriously!
+			</canvas>
+		</form>
+	</section>
+	<section id="content">
+	
+	</section>
+</body>
+</html>
